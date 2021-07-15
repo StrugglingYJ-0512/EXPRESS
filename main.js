@@ -1,11 +1,18 @@
 const express = require('express')
-const app = express()
+const app = express() // express module을 함수처럼 가져왔다. 이는, express모듈은 함수라는 뜻!!
 
-app.get('/', function (req, res) {
-  res.send('Hello World')
+// route, routing : 네비게이션. 사용자들이 여러 path로 왔을 때, 그 경로를 설정해준다. 
+app.get('/', (req, res) => {
+  res.send(' / ')
 })
 
-app.listen(3000)
+app.get('/page', (req, res) => {
+  res.send('/page')
+})
+
+app.listen(3000, () => {
+  console.log('Example app listening on port 3000!')
+})
 
 /*
 var http = require('http');
