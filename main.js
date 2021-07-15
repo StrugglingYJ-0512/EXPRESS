@@ -18,10 +18,12 @@ app.get('/page', (request, response) => {
     response.send(html);
   });
 })
-//기존에는 var app = http.createServer(function (request, response) {}
-// 로  맨 밑에까지 request,resopnse가 내려왔는데, 
-// 이렇게 route 하면, 각각에 response를 했기때문에 어디서 문제가 생긴지도 알기 쉽고,
-// 코드도 더 간결하다. 
+
+// 2. 상세페이지 구현
+// 시멘틱  url 로 작성 ; queryString을 쓰지 않고, path로만 작성
+app.get('/page/:pageId', (request, response) => {
+  response.send(request.params);
+})
 
 
 app.listen(3000, () => {
