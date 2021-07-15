@@ -5,6 +5,18 @@ var template = require('./lib/template.js');
 var path = require('path');
 var sanitizeHtml = require('sanitize-html');
 var qs = require('querystring');
+var bodyParser = require('body-parser')
+var compression = require('compression')
+
+// 폼 형식으로 받은 데이터 (post 데이터 받는 부분)
+app.use(bodyParser.urlencoded({ extended: false }))
+/*bodyParser.urlencoded({ extended: false }) :
+ bodyParser가 만들어 내는 middleware를 만들어 내는 표현식 */
+
+app.use(compression());
+// compression 모듈 호출
+// compression() : 함수 ==> 미들웨어를 리턴하도록 하고,
+// 그 미들웨어 ==> app.use로 장착된다. 
 
 
 
@@ -40,7 +52,7 @@ app.get('/page/:pageId', (request, response) => {
         `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
         ` <a href="/create">create</a>
             <a href="/update/${sanitizedTitle}">update</a>
-            <form action="delete_process" method="post">
+            <form action="/delete_process" method="post">
               <input type="hidden" name="id" value="${sanitizedTitle}">
               <input type="submit" value="delete">
             </form>`
@@ -78,10 +90,14 @@ app.get('/create', (request, response) => {
 })
 
 app.post('/create', (request, response) => {
+  /*
   var body = '';
+  // post방식은 get방식과 다르게 큰 data를 받을 수 있다.  
+  // data가 추가 될 떄마다 request.on이 호출.
   request.on('data', function (data) {
     body = body + data;
   });
+  // data가 없다고 했을 때 실행
   request.on('end', function () {
     var post = qs.parse(body);
     var title = post.title;
@@ -90,6 +106,15 @@ app.post('/create', (request, response) => {
       response.writeHead(302, { Location: `/page/${title}` });
       response.end();
     })
+  });
+  */
+  //post는 body-parser 부분!
+  var post = request.body;
+  var title = post.title;
+  var description = post.description;
+  fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
+    response.writeHead(302, { Location: `/page/${title}` });
+    response.end();
   });
 })
 
@@ -121,22 +146,35 @@ app.get('/update/:pageId', (request, response) => {
 })
 
 app.post('/update_process', function (request, response) {
-  var body = '';
-  request.on('data', function (data) {
-    body = body + data;
+  //post는 body-parser 부분!
+  var post = request.body;
+  var id = post.id;
+  var title = post.title;
+  var description = post.description;
+  fs.rename(`data/${id}`, `data/${title}`, function (error) {
+    fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
+      // response.writeHead(302, { Location: `/page/${title}` });
+      // response.end();
+      response.redirect(`/page/${title}`);
+    })
   });
-  request.on('end', function () {
-    var post = qs.parse(body);
-    var id = post.id;
-    var title = post.title;
-    var description = post.description;
-    fs.rename(`data/${id}`, `data/${title}`, function (error) {
-      fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
-        response.writeHead(302, { Location: `/page/${title}` });
-        response.end();
-      })
-    });
-  });
+});
+
+
+// 5. Delete
+app.post('/delete_process', function (request, response) {
+  //post는 body-parser 부분!
+  var post = request.body;
+  var id = post.id;
+  var filteredId = path.parse(id).base;
+  fs.unlink(`data/${filteredId}`, function (error) {
+    response.redirect('/');
+    // express에서 제공하는 redirect 
+    // Google : nodejs express redirect 로 검색
+    /*기존: 
+      response.writeHead(302, { Location: `/` });
+      response.end();*/
+  })
 });
 
 
@@ -165,28 +203,16 @@ var app = http.createServer(function (request, response) {
       // 상세페이지
     }
   } else if (pathname === '/create') {
-     // get - create
+     // create -  get
   } else if (pathname === '/create_process') {
-     // post - create
+     //  create - post
     });
   } else if (pathname === '/update') {
-    // get - update
+    // update - get
   } else if (pathname === '/update_process') {
-    // post - update
+    // update -  post
   } else if (pathname === '/delete_process') {
-    var body = '';
-    request.on('data', function (data) {
-      body = body + data;
-    });
-    request.on('end', function () {
-      var post = qs.parse(body);
-      var id = post.id;
-      var filteredId = path.parse(id).base;
-      fs.unlink(`data/${filteredId}`, function (error) {
-        response.writeHead(302, { Location: `/` });
-        response.end();
-      })
-    });
+    // delete - post
   } else {
     response.writeHead(404);
     response.end('Not found');
