@@ -39,7 +39,7 @@ app.get('/page/:pageId', (request, response) => {
       var html = template.HTML(sanitizedTitle, list,
         `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
         ` <a href="/create">create</a>
-            <a href="/update?id=${sanitizedTitle}">update</a>
+            <a href="/update/${sanitizedTitle}">update</a>
             <form action="delete_process" method="post">
               <input type="hidden" name="id" value="${sanitizedTitle}">
               <input type="submit" value="delete">
@@ -50,11 +50,14 @@ app.get('/page/:pageId', (request, response) => {
   });
 })
 
-// create 버튼
-// action 의 path : 
-// 왜 같은 /create 경로로 전송하지??? 
-// 접근 할 때 get 방식으로 접근하면, app.get('/create')에 걸릴것이고
-// 데이터를 전홀 할 때, post방식으로 접근하면, app.post('/create')에 걸린다.!!
+
+
+// 3.create 
+/* action 의 path : 
+ 왜 같은 /create 경로로 전송하지??? 
+ 접근 할 때 get 방식으로 접근하면, app.get('/create')에 걸릴것이고
+ 데이터를 전홀 할 때, post방식으로 접근하면, app.post('/create')에 걸린다.!!
+*/
 app.get('/create', (request, response) => {
   fs.readdir('./data', function (error, filelist) {
     var title = 'WEB - create';
@@ -90,6 +93,54 @@ app.post('/create', (request, response) => {
   });
 })
 
+//4.Update
+app.get('/update/:pageId', (request, response) => {
+  fs.readdir('./data', function (error, filelist) {
+    var filteredId = path.parse(request.params.pageId).base;
+    fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
+      var title = request.params.pageId;
+      var list = template.list(filelist);
+      var html = template.HTML(title, list,
+        `
+          <form action="/update_process" method="post">
+            <input type="hidden" name="id" value="${title}">
+            <p><input type="text" name="title" placeholder="title" value="${title}"></p>
+            <p>
+              <textarea name="description" placeholder="description">${description}</textarea>
+            </p>
+            <p>
+              <input type="submit">
+            </p>
+          </form>
+          `,
+        `<a href="/create">create</a> <a href="/update/${title}">update</a>`
+      );
+      response.send(html);
+    });
+  });
+})
+
+app.post('/update_process', function (request, response) {
+  var body = '';
+  request.on('data', function (data) {
+    body = body + data;
+  });
+  request.on('end', function () {
+    var post = qs.parse(body);
+    var id = post.id;
+    var title = post.title;
+    var description = post.description;
+    fs.rename(`data/${id}`, `data/${title}`, function (error) {
+      fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
+        response.writeHead(302, { Location: `/page/${title}` });
+        response.end();
+      })
+    });
+  });
+});
+
+
+
 app.listen(3000, () => {
   console.log('Example app listening on port 3000!')
 })
@@ -114,63 +165,14 @@ var app = http.createServer(function (request, response) {
       // 상세페이지
     }
   } else if (pathname === '/create') {
-      // create
+     // get - create
   } else if (pathname === '/create_process') {
-    var body = '';
-    request.on('data', function (data) {
-      body = body + data;
-    });
-    request.on('end', function () {
-      var post = qs.parse(body);
-      var title = post.title;
-      var description = post.description;
-      fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
-        response.writeHead(302, { Location: `/?id=${title}` });
-        response.end();
-      })
+     // post - create
     });
   } else if (pathname === '/update') {
-    fs.readdir('./data', function (error, filelist) {
-      var filteredId = path.parse(queryData.id).base;
-      fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
-        var title = queryData.id;
-        var list = template.list(filelist);
-        var html = template.HTML(title, list,
-          `
-            <form action="/update_process" method="post">
-              <input type="hidden" name="id" value="${title}">
-              <p><input type="text" name="title" placeholder="title" value="${title}"></p>
-              <p>
-                <textarea name="description" placeholder="description">${description}</textarea>
-              </p>
-              <p>
-                <input type="submit">
-              </p>
-            </form>
-            `,
-          `<a href="/create">create</a> <a href="/update?id=${title}">update</a>`
-        );
-        response.writeHead(200);
-        response.end(html);
-      });
-    });
+    // get - update
   } else if (pathname === '/update_process') {
-    var body = '';
-    request.on('data', function (data) {
-      body = body + data;
-    });
-    request.on('end', function () {
-      var post = qs.parse(body);
-      var id = post.id;
-      var title = post.title;
-      var description = post.description;
-      fs.rename(`data/${id}`, `data/${title}`, function (error) {
-        fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
-          response.writeHead(302, { Location: `/?id=${title}` });
-          response.end();
-        })
-      });
-    });
+    // post - update
   } else if (pathname === '/delete_process') {
     var body = '';
     request.on('data', function (data) {
