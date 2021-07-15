@@ -4,6 +4,8 @@ var fs = require('fs');
 var template = require('./lib/template.js');
 var path = require('path');
 var sanitizeHtml = require('sanitize-html');
+var qs = require('querystring');
+
 
 
 // route, routing : 네비게이션. 사용자들이 여러 path로 왔을 때, 그 경로를 설정해준다. 
@@ -48,6 +50,45 @@ app.get('/page/:pageId', (request, response) => {
   });
 })
 
+// create 버튼
+// action 의 path : 
+// 왜 같은 /create 경로로 전송하지??? 
+// 접근 할 때 get 방식으로 접근하면, app.get('/create')에 걸릴것이고
+// 데이터를 전홀 할 때, post방식으로 접근하면, app.post('/create')에 걸린다.!!
+app.get('/create', (request, response) => {
+  fs.readdir('./data', function (error, filelist) {
+    var title = 'WEB - create';
+    var list = template.list(filelist);
+    var html = template.HTML(title, list, `
+        <form action="/create" method="post">
+          <p><input type="text" name="title" placeholder="title"></p>
+          <p>
+            <textarea name="description" placeholder="description"></textarea>
+          </p>
+          <p>
+            <input type="submit">
+          </p>
+        </form>
+      `, '');
+    response.send(html);
+  });
+})
+
+app.post('/create', (request, response) => {
+  var body = '';
+  request.on('data', function (data) {
+    body = body + data;
+  });
+  request.on('end', function () {
+    var post = qs.parse(body);
+    var title = post.title;
+    var description = post.description;
+    fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
+      response.writeHead(302, { Location: `/page/${title}` });
+      response.end();
+    })
+  });
+})
 
 app.listen(3000, () => {
   console.log('Example app listening on port 3000!')
@@ -70,47 +111,10 @@ var app = http.createServer(function (request, response) {
     if (queryData.id === undefined) {
       // 홈페이지
     } else {
-      fs.readdir('./data', function (error, filelist) {
-        var filteredId = path.parse(queryData.id).base;
-        fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
-          var title = queryData.id;
-          var sanitizedTitle = sanitizeHtml(title);
-          var sanitizedDescription = sanitizeHtml(description, {
-            allowedTags: ['h1']
-          });
-          var list = template.list(filelist);
-          var html = template.HTML(sanitizedTitle, list,
-            `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-            ` <a href="/create">create</a>
-                <a href="/update?id=${sanitizedTitle}">update</a>
-                <form action="delete_process" method="post">
-                  <input type="hidden" name="id" value="${sanitizedTitle}">
-                  <input type="submit" value="delete">
-                </form>`
-          );
-          response.writeHead(200);
-          response.end(html);
-        });
-      });
+      // 상세페이지
     }
   } else if (pathname === '/create') {
-    fs.readdir('./data', function (error, filelist) {
-      var title = 'WEB - create';
-      var list = template.list(filelist);
-      var html = template.HTML(title, list, `
-          <form action="/create_process" method="post">
-            <p><input type="text" name="title" placeholder="title"></p>
-            <p>
-              <textarea name="description" placeholder="description"></textarea>
-            </p>
-            <p>
-              <input type="submit">
-            </p>
-          </form>
-        `, '');
-      response.writeHead(200);
-      response.end(html);
-    });
+      // create
   } else if (pathname === '/create_process') {
     var body = '';
     request.on('data', function (data) {
