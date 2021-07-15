@@ -1,14 +1,28 @@
 const express = require('express')
 const app = express() // express module을 함수처럼 가져왔다. 이는, express모듈은 함수라는 뜻!!
+var fs = require('fs');
+var template = require('./lib/template.js');
 
 // route, routing : 네비게이션. 사용자들이 여러 path로 왔을 때, 그 경로를 설정해준다. 
-app.get('/', (req, res) => {
-  res.send(' / ')
-})
 
-app.get('/page', (req, res) => {
-  res.send('/page')
+// 1. 홈페이지 구현.
+app.get('/page', (request, response) => {
+  fs.readdir('./data', function (error, filelist) {
+    var title = 'Welcome';
+    var description = 'Hello, Node.js';
+    var list = template.list(filelist);
+    var html = template.HTML(title, list,
+      `<h2>${title}</h2>${description}`,
+      `<a href="/create">create</a>`
+    );
+    response.send(html);
+  });
 })
+//기존에는 var app = http.createServer(function (request, response) {}
+// 로  맨 밑에까지 request,resopnse가 내려왔는데, 
+// 이렇게 route 하면, 각각에 response를 했기때문에 어디서 문제가 생긴지도 알기 쉽고,
+// 코드도 더 간결하다. 
+
 
 app.listen(3000, () => {
   console.log('Example app listening on port 3000!')
