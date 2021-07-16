@@ -8,58 +8,79 @@ var qs = require('querystring');
 var bodyParser = require('body-parser')
 var compression = require('compression')
 
-// 폼 형식으로 받은 데이터 (post 데이터 받는 부분)
+// 미들웨어
+//1.  폼 형식으로 받은 데이터 (post 데이터 받는 부분)
 app.use(bodyParser.urlencoded({ extended: false }))
 /*bodyParser.urlencoded({ extended: false }) :
  bodyParser가 만들어 내는 middleware를 만들어 내는 표현식 */
 
+// 2. 압축
 app.use(compression());
 // compression 모듈 호출
 // compression() : 함수 ==> 미들웨어를 리턴하도록 하고,
 // 그 미들웨어 ==> app.use로 장착된다. 
 
+/* 3. middleWare 만들기
+  : 중복되는 함수)fs.readdir('./data', (error, filelist) => {}
+*/
+// app.use((request, response, next) => {
+//   fs.readdir('./data', (error, filelist) => {
+//     request.list = filelist; // requestr객체에 list를 셋팅
+//     //==>  모든 라우터들은 request 객체의 list property를 통해 filelist에 접근 가능하다
 
+//     next(); //미들웨어 실행 <= next(); 호출되어야할 미들웨어가 담겨있따
+//   })
+// })
+// ==> create, update, 같은 곳에서 dir를 읽어올 필요가 없다. 
 
+// 수정 : *: 모든요청 , get 방식으로 들어오는 모든 요청에 대해서만 파일 목록을 가져온다. 
+// 따라서, post방식으로 가져온 것은 처리하지 않는다. 
+app.get('*', (request, response, next) => {
+  fs.readdir('./data', (error, filelist) => {
+    request.list = filelist; // requestr객체에 list를 셋팅
+    //==>  모든 라우터들은 request 객체의 list property를 통해 filelist에 접근 가능하다
+
+    next(); //미들웨어 실행 <= next(); 호출되어야할 미들웨어가 담겨있따
+  })
+})
 // route, routing : 네비게이션. 사용자들이 여러 path로 왔을 때, 그 경로를 설정해준다. 
 
 // 1. 홈페이지 구현.
 app.get('/', (request, response) => {
-  fs.readdir('./data', (error, filelist) => {
-    var title = 'Welcome';
-    var description = 'Hello, Node.js';
-    var list = template.list(filelist);
-    var html = template.HTML(title, list,
-      `<h2>${title}</h2>${description}`,
-      `<a href="/create">create</a>`
-    );
-    response.send(html);
-  });
+  var title = 'Welcome';
+  var description = 'Hello, Node.js';
+  var list = template.list(request.list);
+  var html = template.HTML(title, list,
+    `<h2>${title}</h2>${description}`,
+    `<a href="/create">create</a>`
+  );
+  response.send(html);
+
 })
 
 // 2. 상세페이지 구현
 // 시멘틱  url 로 작성 ; queryString을 쓰지 않고, path로만 작성
 app.get('/page/:pageId', (request, response) => {
-  fs.readdir('./data', function (error, filelist) {
-    var filteredId = path.parse(request.params.pageId).base;
-    fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
-      var title = request.params.pageId;
-      var sanitizedTitle = sanitizeHtml(title);
-      var sanitizedDescription = sanitizeHtml(description, {
-        allowedTags: ['h1']
-      });
-      var list = template.list(filelist);
-      var html = template.HTML(sanitizedTitle, list,
-        `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-        ` <a href="/create">create</a>
+  var filteredId = path.parse(request.params.pageId).base;
+  fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
+    var title = request.params.pageId;
+    var sanitizedTitle = sanitizeHtml(title);
+    var sanitizedDescription = sanitizeHtml(description, {
+      allowedTags: ['h1']
+    });
+    var list = template.list(request.list);
+    var html = template.HTML(sanitizedTitle, list,
+      `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
+      ` <a href="/create">create</a>
             <a href="/update/${sanitizedTitle}">update</a>
             <form action="/delete_process" method="post">
               <input type="hidden" name="id" value="${sanitizedTitle}">
               <input type="submit" value="delete">
             </form>`
-      );
-      response.send(html);
-    });
+    );
+    response.send(html);
   });
+
 })
 
 
@@ -71,10 +92,9 @@ app.get('/page/:pageId', (request, response) => {
  데이터를 전홀 할 때, post방식으로 접근하면, app.post('/create')에 걸린다.!!
 */
 app.get('/create', (request, response) => {
-  fs.readdir('./data', function (error, filelist) {
-    var title = 'WEB - create';
-    var list = template.list(filelist);
-    var html = template.HTML(title, list, `
+  var title = 'WEB - create';
+  var list = template.list(request.list);
+  var html = template.HTML(title, list, `
         <form action="/create" method="post">
           <p><input type="text" name="title" placeholder="title"></p>
           <p>
@@ -85,29 +105,12 @@ app.get('/create', (request, response) => {
           </p>
         </form>
       `, '');
-    response.send(html);
-  });
+  response.send(html);
+
 })
 
 app.post('/create', (request, response) => {
-  /*
-  var body = '';
-  // post방식은 get방식과 다르게 큰 data를 받을 수 있다.  
-  // data가 추가 될 떄마다 request.on이 호출.
-  request.on('data', function (data) {
-    body = body + data;
-  });
-  // data가 없다고 했을 때 실행
-  request.on('end', function () {
-    var post = qs.parse(body);
-    var title = post.title;
-    var description = post.description;
-    fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
-      response.writeHead(302, { Location: `/page/${title}` });
-      response.end();
-    })
-  });
-  */
+  console.log(request.list)
   //post는 body-parser 부분!
   var post = request.body;
   var title = post.title;
@@ -120,13 +123,12 @@ app.post('/create', (request, response) => {
 
 //4.Update
 app.get('/update/:pageId', (request, response) => {
-  fs.readdir('./data', function (error, filelist) {
-    var filteredId = path.parse(request.params.pageId).base;
-    fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
-      var title = request.params.pageId;
-      var list = template.list(filelist);
-      var html = template.HTML(title, list,
-        `
+  var filteredId = path.parse(request.params.pageId).base;
+  fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
+    var title = request.params.pageId;
+    var list = template.list(request.list);
+    var html = template.HTML(title, list,
+      `
           <form action="/update_process" method="post">
             <input type="hidden" name="id" value="${title}">
             <p><input type="text" name="title" placeholder="title" value="${title}"></p>
@@ -138,11 +140,11 @@ app.get('/update/:pageId', (request, response) => {
             </p>
           </form>
           `,
-        `<a href="/create">create</a> <a href="/update/${title}">update</a>`
-      );
-      response.send(html);
-    });
+      `<a href="/create">create</a> <a href="/update/${title}">update</a>`
+    );
+    response.send(html);
   });
+
 })
 
 app.post('/update_process', function (request, response) {
