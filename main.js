@@ -8,39 +8,17 @@ var qs = require('querystring');
 var bodyParser = require('body-parser')
 var compression = require('compression')
 
-// 미들웨어
-//1.  폼 형식으로 받은 데이터 (post 데이터 받는 부분)
+//'public' directory 안에서 static 파일을 찾겠다!! 라고 직접 지정
+app.use(express.static('public'))
+// 'public' directory 안의 파일 or directory 만 url을 통해 접근한다 
+// ==> 여기만 접근허용이므로, 훨씬 안전해짐. 
+
 app.use(bodyParser.urlencoded({ extended: false }))
-/*bodyParser.urlencoded({ extended: false }) :
- bodyParser가 만들어 내는 middleware를 만들어 내는 표현식 */
-
-// 2. 압축
 app.use(compression());
-// compression 모듈 호출
-// compression() : 함수 ==> 미들웨어를 리턴하도록 하고,
-// 그 미들웨어 ==> app.use로 장착된다. 
-
-/* 3. middleWare 만들기
-  : 중복되는 함수)fs.readdir('./data', (error, filelist) => {}
-*/
-// app.use((request, response, next) => {
-//   fs.readdir('./data', (error, filelist) => {
-//     request.list = filelist; // requestr객체에 list를 셋팅
-//     //==>  모든 라우터들은 request 객체의 list property를 통해 filelist에 접근 가능하다
-
-//     next(); //미들웨어 실행 <= next(); 호출되어야할 미들웨어가 담겨있따
-//   })
-// })
-// ==> create, update, 같은 곳에서 dir를 읽어올 필요가 없다. 
-
-// 수정 : *: 모든요청 , get 방식으로 들어오는 모든 요청에 대해서만 파일 목록을 가져온다. 
-// 따라서, post방식으로 가져온 것은 처리하지 않는다. 
 app.get('*', (request, response, next) => {
   fs.readdir('./data', (error, filelist) => {
-    request.list = filelist; // requestr객체에 list를 셋팅
-    //==>  모든 라우터들은 request 객체의 list property를 통해 filelist에 접근 가능하다
-
-    next(); //미들웨어 실행 <= next(); 호출되어야할 미들웨어가 담겨있따
+    request.list = filelist;
+    next();
   })
 })
 // route, routing : 네비게이션. 사용자들이 여러 path로 왔을 때, 그 경로를 설정해준다. 
@@ -51,7 +29,8 @@ app.get('/', (request, response) => {
   var description = 'Hello, Node.js';
   var list = template.list(request.list);
   var html = template.HTML(title, list,
-    `<h2>${title}</h2>${description}`,
+    `<h2>${title}</h2>${description},
+    <img src="/images/hello.jpg" style="width:400px; display:block; margin-top:10px">`,
     `<a href="/create">create</a>`
   );
   response.send(html);
@@ -185,40 +164,3 @@ app.listen(3000, () => {
   console.log('Example app listening on port 3000!')
 })
 
-/*
-var http = require('http');
-var fs = require('fs');
-var url = require('url');
-var qs = require('querystring');
-var template = require('./lib/template.js');
-var path = require('path');
-var sanitizeHtml = require('sanitize-html');
-
-var app = http.createServer(function (request, response) {
-  var _url = request.url;
-  var queryData = url.parse(_url, true).query;
-  var pathname = url.parse(_url, true).pathname;
-  if (pathname === '/') {
-    if (queryData.id === undefined) {
-      // 홈페이지
-    } else {
-      // 상세페이지
-    }
-  } else if (pathname === '/create') {
-     // create -  get
-  } else if (pathname === '/create_process') {
-     //  create - post
-    });
-  } else if (pathname === '/update') {
-    // update - get
-  } else if (pathname === '/update_process') {
-    // update -  post
-  } else if (pathname === '/delete_process') {
-    // delete - post
-  } else {
-    response.writeHead(404);
-    response.end('Not found');
-  }
-});
-app.listen(3000);
-*/
