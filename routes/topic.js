@@ -5,6 +5,11 @@ var router = express.Router() // express.Router() 메소드를 실행 -> router�
 // express가 같고있는 Router메소드를 호출 
 // Router 를 리턴
 var template = require('../lib/template.js');
+var path = require('path');
+var fs = require('fs');
+var sanitizeHtml = require('sanitize-html');
+
+
 
 
 // 3.create 
@@ -26,7 +31,6 @@ router.get('/create', (request, response) => {
 
 })
 router.post('/create', (request, response) => {
-  console.log(request.list)
   //post는 body-parser 부분!
   var post = request.body;
   var title = post.title;
@@ -94,11 +98,6 @@ router.post('/delete_process', function (request, response) {
       response.end();*/
   })
 });
-
-router.use(function (req, res, next) {
-  res.status(404).send('Sorry cant find that!');
-});
-
 
 // 2. 상세페이지 구현 (/topic/path로 들어온 페이지 처리)
 // 시멘틱  url 로 작성 ; queryString을 쓰지 않고, path로만 작성
