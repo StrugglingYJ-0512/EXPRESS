@@ -1,5 +1,9 @@
+
 const express = require('express')
 const app = express() // express module을 함수처럼 가져왔다. 이는, express모듈은 함수라는 뜻!!
+// express라는 모듈 자체를 호출
+// Application 객체를 리턴
+
 var fs = require('fs');
 var template = require('./lib/template.js');
 var path = require('path');
@@ -7,6 +11,7 @@ var sanitizeHtml = require('sanitize-html');
 var qs = require('querystring');
 var bodyParser = require('body-parser')
 var compression = require('compression')
+var topicRouter = require('./routes/topic') //./routes/topic 폴더를 가져온다. 
 
 //'public' directory 안에서 static 파일을 찾겠다!! 라고 직접 지정
 app.use(express.static('public'))
@@ -23,6 +28,12 @@ app.get('*', (request, response, next) => {
 })
 // route, routing : 네비게이션. 사용자들이 여러 path로 왔을 때, 그 경로를 설정해준다. 
 
+// '/topic'으로 주소들에게 topicRouter라는 미들웨어를 적용하겠따!! 라는 뜻.
+app.use('/topic', topicRouter);
+// topicRouter 이 부분에서는, /topic을 없애야 한다.
+// 이 코드처럼, router를 이렇게('/topic/')지정하면
+// 라우터 내부에서는 /topic을 path에다가 담을 필요가 없다.  
+
 // 1. 홈페이지 구현.
 app.get('/', (request, response) => {
   var title = 'Welcome';
@@ -37,140 +48,13 @@ app.get('/', (request, response) => {
 
 })
 
-// 3.create 
-app.get('/topic/create', (request, response) => {
-  var title = 'WEB - create';
-  var list = template.list(request.list);
-  var html = template.HTML(title, list, `
-        <form action="/topic/create" method="post">
-          <p><input type="text" name="title" placeholder="title"></p>
-          <p>
-            <textarea name="description" placeholder="description"></textarea>
-          </p>
-          <p>
-            <input type="submit">
-          </p>
-        </form>
-      `, '');
-  response.send(html);
-
-})
-app.post('/topic/create', (request, response) => {
-  console.log(request.list)
-  //post는 body-parser 부분!
-  var post = request.body;
-  var title = post.title;
-  var description = post.description;
-  fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
-    // response.writeHead(302, { Location: `/topic/${title}` });
-    // response.end();
-    response.redirect(`/topic/${title}`); //리다이렉트 
-  });
-})
-
-//4.Update
-app.get('/topic/update/:pageId', (request, response) => {
-  var filteredId = path.parse(request.params.pageId).base;
-  fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
-    var title = request.params.pageId;
-    var list = template.list(request.list);
-    var html = template.HTML(title, list,
-      `
-          <form action="/topic/update_process" method="post">
-            <input type="hidden" name="id" value="${title}">
-            <p><input type="text" name="title" placeholder="title" value="${title}"></p>
-            <p>
-              <textarea name="description" placeholder="description">${description}</textarea>
-            </p>
-            <p>
-              <input type="submit">
-            </p>
-          </form>
-          `,
-      `<a href="/topic/create">create</a> <a href="/topic/update/${title}">update</a>`
-    );
-    response.send(html);
-  });
-
-})
-
-app.post('/topic/update_process', function (request, response) {
-  //post는 body-parser 부분!
-  var post = request.body;
-  var id = post.id;
-  var title = post.title;
-  var description = post.description;
-  fs.rename(`data/${id}`, `data/${title}`, function (error) {
-    fs.writeFile(`data/${title}`, description, 'utf8', function (err) {
-      // response.writeHead(302, { Location: `/topic/${title}` });
-      // response.end();
-      response.redirect(`/topic/${title}`);
-    })
-  });
-});
-
-// 5. Delete
-app.post('/topic/delete_process', function (request, response) {
-  //post는 body-parser 부분!
-  var post = request.body;
-  var id = post.id;
-  var filteredId = path.parse(id).base;
-  fs.unlink(`data/${filteredId}`, function (error) {
-    response.redirect('/');
-    // express에서 제공하는 redirect 
-    // Google : nodejs express redirect 로 검색
-    /*기존: 
-      response.writeHead(302, { Location: `/` });
-      response.end();*/
-  })
-});
+////////////
+// 경로가 '/topic/'으로 시작한는 라우터를 topic.js 파일로 분리시킴
+///////////
 
 app.use(function (req, res, next) {
-  res.status(404).send('Sorry cant find that!');
+  res.status(404).send('Sorry cant find that')
 });
-
-
-// 2. 상세페이지 구현 (/topic/path로 들어온 페이지 처리)
-// 시멘틱  url 로 작성 ; queryString을 쓰지 않고, path로만 작성
-// Err가 있는 경우 next를 호출한다. 
-app.get('/topic/:pageId', (request, response, next) => {
-  var filteredId = path.parse(request.params.pageId).base;
-  fs.readFile(`data/${filteredId}`, 'utf8', function (err, description) {
-    /* fs.readFile(`data/${filteredId}`, 'utf8', function (err, description)
-     ; data/${filteredId}에서 file을 읽는데, 그 파일이 없다면 callback함수의 
-     첫번째 param으로 Error 객체를 전달하도록 되어잇따. */
-    if (err) { //err 가 발생한다면
-      next(err); // next를 통해서 다음 middleWare를 던져준다.
-      // 인자로 'route'를 전달해도 다음 미들웨어를 실행시킴
-      // 그 외의 데이터가 들어오면, err라는 약속 체결되어있다.
-      // next(err); 는 err데이터를 전달해 주면, err를 던지는 것이다
-    } else {
-      var title = request.params.pageId;
-      var sanitizedTitle = sanitizeHtml(title);
-      var sanitizedDescription = sanitizeHtml(description, {
-        allowedTags: ['h1']
-      });
-      var list = template.list(request.list);
-      var html = template.HTML(sanitizedTitle, list,
-        `<h2>${sanitizedTitle}</h2>${sanitizedDescription}`,
-        ` <a href="/topic/create">create</a>
-              <a href="/topic/update/${sanitizedTitle}">update</a>
-              <form action="/topic/delete_process" method="post">
-                <input type="hidden" name="id" value="${sanitizedTitle}">
-                <input type="submit" value="delete">
-              </form>`
-      );
-      response.send(html);
-    }
-
-  });
-})
-
-
-
-
-
-
 
 
 /* status Code : 404 밑에 놔야함.
